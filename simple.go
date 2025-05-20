@@ -1,6 +1,7 @@
 package gcache
 
 import (
+	"context"
 	"errors"
 	"time"
 )
@@ -91,20 +92,28 @@ func (c *SimpleCache[K, V]) set(key K, value V) (*simpleItem[V], error) {
 // Get a value from cache pool using key if it exists. If it does not exists key
 // and has LoaderFunc, generate a value using `LoaderFunc` method returns value.
 func (c *SimpleCache[K, V]) Get(key K) (V, error) {
-	v, err := c.get(key, false)
-	if errors.Is(err, KeyNotFoundError) {
-		return c.getWithLoader(key, true)
-	}
-	return v, err
+	return c.GetWithContext(context.Background(), key)
 }
 
 // GetIFPresent gets a value from cache pool using key if it exists. If it does
 // not exists key, returns KeyNotFoundError. And send a request which refresh
 // value for specified key if cache object has LoaderFunc.
 func (c *SimpleCache[K, V]) GetIFPresent(key K) (V, error) {
+	return c.GetIFPresentWithContext(context.Background(), key)
+}
+
+func (c *SimpleCache[K, V]) GetWithContext(ctx context.Context, key K) (V, error) {
 	v, err := c.get(key, false)
 	if errors.Is(err, KeyNotFoundError) {
-		return c.getWithLoader(key, false)
+		return c.getWithLoader(ctx, key, true)
+	}
+	return v, err
+}
+
+func (c *SimpleCache[K, V]) GetIFPresentWithContext(ctx context.Context, key K) (V, error) {
+	v, err := c.get(key, false)
+	if errors.Is(err, KeyNotFoundError) {
+		return c.getWithLoader(ctx, key, false)
 	}
 	return v, nil
 }
@@ -141,11 +150,11 @@ func (c *SimpleCache[K, V]) getValue(key K, onLoad bool) (v V, _ error) {
 	return v, KeyNotFoundError
 }
 
-func (c *SimpleCache[K, V]) getWithLoader(key K, isWait bool) (v V, _ error) {
+func (c *SimpleCache[K, V]) getWithLoader(ctx context.Context, key K, isWait bool) (v V, _ error) {
 	if c.loaderExpireFunc == nil {
 		return v, KeyNotFoundError
 	}
-	value, _, err := c.load(key, func(v V, expiration *time.Duration, e error) (ret V, _ error) {
+	value, _, err := c.load(ctx, key, func(v V, expiration *time.Duration, e error) (ret V, _ error) {
 		if e != nil {
 			return ret, e
 		}

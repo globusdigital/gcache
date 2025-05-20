@@ -2,6 +2,7 @@ package gcache
 
 import (
 	"bytes"
+	"context"
 	"encoding/gob"
 	"strings"
 	"sync"
@@ -22,7 +23,7 @@ func TestLoaderFunc(t *testing.T) {
 		var testCounter int64
 		counter := 1000
 		cache := builder.
-			LoaderFunc(func(key int) (int, error) {
+			LoaderFunc(func(ctx context.Context, key int) (int, error) {
 				time.Sleep(10 * time.Millisecond)
 				return int(atomic.AddInt64(&testCounter, 1)), nil
 			}).
@@ -61,7 +62,7 @@ func TestLoaderExpireFuncWithoutExpire(t *testing.T) {
 		var testCounter int64
 		counter := 1000
 		cache := builder.
-			LoaderExpireFunc(func(key int) (int, *time.Duration, error) {
+			LoaderExpireFunc(func(ctx context.Context, key int) (int, *time.Duration, error) {
 				return int(atomic.AddInt64(&testCounter, 1)), nil, nil
 			}).
 			EvictedFunc(func(key, value int) {
@@ -101,7 +102,7 @@ func TestLoaderExpireFuncWithExpire(t *testing.T) {
 		counter := 1000
 		expire := 200 * time.Millisecond
 		cache := builder.
-			LoaderExpireFunc(func(key int) (int, *time.Duration, error) {
+			LoaderExpireFunc(func(ctx context.Context, key int) (int, *time.Duration, error) {
 				return int(atomic.AddInt64(&testCounter, 1)), &expire, nil
 			}).
 			Build()
@@ -165,7 +166,7 @@ func TestLoaderPurgeVisitorFunc(t *testing.T) {
 		var purgeCounter, evictCounter, loaderCounter int64
 		counter := 1000
 		cache := test.cacheBuilder.
-			LoaderFunc(func(key int64) (int64, error) {
+			LoaderFunc(func(ctx context.Context, key int64) (int64, error) {
 				return atomic.AddInt64(&loaderCounter, 1), nil
 			}).
 			EvictedFunc(func(key, value int64) {
@@ -221,7 +222,7 @@ func TestDeserializeFunc(t *testing.T) {
 		key2, value2 := "key2", "value2"
 		cc := New[string, string](32).
 			EvictType(cs.tp).
-			LoaderFunc(func(k string) (string, error) {
+			LoaderFunc(func(ctx context.Context, k string) (string, error) {
 				return value1, nil
 			}).
 			DeserializeFunc(func(k, v string) (string, error) {

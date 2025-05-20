@@ -1,6 +1,7 @@
 package gcache
 
 import (
+	"context"
 	"testing"
 )
 
@@ -30,7 +31,7 @@ func TestStats(t *testing.T) {
 	}
 }
 
-func getter[K comparable, T any](key K) (T, error) {
+func getter[K comparable, T any](_ context.Context, key K) (T, error) {
 	kv := any(key)
 	return kv.(T), nil
 }

@@ -1,12 +1,13 @@
 package gcache
 
 import (
+	"context"
 	"fmt"
 	"testing"
 	"time"
 )
 
-func loader[K comparable, V any](key K) (V, error) {
+func loader[K comparable, V any](_ context.Context, key K) (V, error) {
 	var s any = fmt.Sprintf("valueFor%v", key)
 	return s.(V), nil
 }
@@ -14,7 +15,7 @@ func loader[K comparable, V any](key K) (V, error) {
 func testSetCache(t *testing.T, gc Cache[string, string], numbers int) {
 	for i := 0; i < numbers; i++ {
 		key := fmt.Sprintf("Key-%d", i)
-		value, err := loader[string, string](key)
+		value, err := loader[string, string](context.TODO(), key)
 		if err != nil {
 			t.Error(err)
 			return
@@ -30,7 +31,7 @@ func testGetCache(t *testing.T, gc Cache[string, string], numbers int) {
 		if err != nil {
 			t.Errorf("Unexpected error: %v", err)
 		}
-		expectedV, _ := loader[string, string](key)
+		expectedV, _ := loader[string, string](context.TODO(), key)
 		if v != expectedV {
 			t.Errorf("Expected value is %v, not %v", expectedV, v)
 		}
@@ -41,7 +42,7 @@ func testGetIFPresent(t *testing.T, evT string) {
 	cache := New[string, string](8).
 		EvictType(evT).
 		LoaderFunc(
-			func(key string) (string, error) {
+			func(ctx context.Context,key string) (string, error) {
 				return "value", nil
 			}).
 		Build()

@@ -1,6 +1,7 @@
 package gcache
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"sync"
@@ -27,10 +28,12 @@ type Cache[K comparable, V any] interface {
 	// LoaderFunc, invoke the `LoaderFunc` function and inserts the key-value
 	// pair in the cache. If the key is not present in the cache and the cache
 	// does not have a LoaderFunc, return KeyNotFoundError.
-	Get(key K) (V, error)
+	Get(K) (V, error)
 	// GetIFPresent returns the value for the specified key if it is present in
 	// the cache. Return KeyNotFoundError if the key is not present.
-	GetIFPresent(key K) (V, error)
+	GetIFPresent(K) (V, error)
+	GetWithContext(context.Context, K) (V, error)
+	GetIFPresentWithContext(context.Context, K) (V, error)
 	// GetALL returns a map containing all key-value pairs in the cache.
 	GetALL(checkExpired bool) map[K]V
 	get(key K, onLoad bool) (V, error)
@@ -60,13 +63,13 @@ type baseCache[K comparable, V any] struct {
 	serializeFunc    SerializeFunc[K, V]
 	expiration       *time.Duration
 	mu               sync.RWMutex
-	loadGroup        Group[K,V]
+	loadGroup        Group[K, V]
 	*stats
 }
 
 type (
-	LoaderFunc[K comparable, V any]       func(K) (V, error)
-	LoaderExpireFunc[K comparable, V any] func(K) (V, *time.Duration, error)
+	LoaderFunc[K comparable, V any]       func(context.Context, K) (V, error)
+	LoaderExpireFunc[K comparable, V any] func(context.Context, K) (V, *time.Duration, error)
 	EvictedFunc[K comparable, V any]      func(K, V)
 	PurgeVisitorFunc[K comparable, V any] func(K, V)
 	AddedFunc[K comparable, V any]        func(K, V)
@@ -103,8 +106,8 @@ func (cb *CacheBuilder[K, V]) Clock(clock Clock) *CacheBuilder[K, V] {
 // LoaderFunc Set a loader function. loaderFunc: create a new value with this
 // function if cached value is expired.
 func (cb *CacheBuilder[K, V]) LoaderFunc(loaderFunc LoaderFunc[K, V]) *CacheBuilder[K, V] {
-	cb.loaderExpireFunc = func(k K) (V, *time.Duration, error) {
-		v, err := loaderFunc(k)
+	cb.loaderExpireFunc = func(ctx context.Context, k K) (V, *time.Duration, error) {
+		v, err := loaderFunc(ctx, k)
 		return v, nil, err
 	}
 	return cb
@@ -207,14 +210,14 @@ func buildCache[K comparable, V any](c *baseCache[K, V], cb *CacheBuilder[K, V])
 }
 
 // load a new value using by specified key.
-func (c *baseCache[K, V]) load(key K, cb func(V, *time.Duration, error) (V, error), isWait bool) (V, bool, error) {
+func (c *baseCache[K, V]) load(ctx context.Context, key K, cb func(V, *time.Duration, error) (V, error), isWait bool) (V, bool, error) {
 	v, called, err := c.loadGroup.Do(key, func() (v V, e error) {
 		defer func() {
 			if r := recover(); r != nil {
 				e = fmt.Errorf("loader panics: %v", r)
 			}
 		}()
-		return cb(c.loaderExpireFunc(key))
+		return cb(c.loaderExpireFunc(ctx, key))
 	}, isWait)
 	if err != nil {
 		var v V

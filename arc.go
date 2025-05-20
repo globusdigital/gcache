@@ -2,6 +2,7 @@ package gcache
 
 import (
 	"container/list"
+	"context"
 	"errors"
 	"time"
 )
@@ -66,7 +67,7 @@ func (c *ARC[K, V]) Set(key K, value V) error {
 	return err
 }
 
-// Set a new key-value pair with an expiration time
+// SetWithExpire Set a new key-value pair with an expiration time
 func (c *ARC[K, V]) SetWithExpire(key K, value V, expiration time.Duration) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -167,20 +168,28 @@ func (c *ARC[K, V]) set(key K, value V) (*arcItem[K, V], error) {
 // LoaderFunc, it will generate the value using you have specified LoaderFunc
 // method returns value.
 func (c *ARC[K, V]) Get(key K) (V, error) {
-	v, err := c.get(key, false)
-	if errors.Is(err, KeyNotFoundError) {
-		return c.getWithLoader(key, true)
-	}
-	return v, err
+	return c.GetWithContext(context.Background(), key)
 }
 
 // GetIFPresent gets a value from cache pool using key if it exists. If it does
 // not exists key, returns KeyNotFoundError. And send a request which refresh
 // value for specified key if cache object has LoaderFunc.
 func (c *ARC[K, V]) GetIFPresent(key K) (V, error) {
+	return c.GetIFPresentWithContext(context.Background(), key)
+}
+
+func (c *ARC[K, V]) GetWithContext(ctx context.Context, key K) (V, error) {
 	v, err := c.get(key, false)
 	if errors.Is(err, KeyNotFoundError) {
-		return c.getWithLoader(key, false)
+		return c.getWithLoader(ctx, key, true)
+	}
+	return v, err
+}
+
+func (c *ARC[K, V]) GetIFPresentWithContext(ctx context.Context, key K) (V, error) {
+	v, err := c.get(key, false)
+	if errors.Is(err, KeyNotFoundError) {
+		return c.getWithLoader(ctx, key, false)
 	}
 	return v, err
 }
@@ -241,11 +250,11 @@ func (c *ARC[K, V]) getValue(key K, onLoad bool) (V, error) {
 	return v, KeyNotFoundError
 }
 
-func (c *ARC[K, V]) getWithLoader(key K, isWait bool) (v V, _ error) {
+func (c *ARC[K, V]) getWithLoader(ctx context.Context, key K, isWait bool) (v V, _ error) {
 	if c.loaderExpireFunc == nil {
 		return v, KeyNotFoundError
 	}
-	value, _, err := c.load(key, func(v V, expiration *time.Duration, e error) (V, error) {
+	value, _, err := c.load(ctx, key, func(v V, expiration *time.Duration, e error) (V, error) {
 		if e != nil {
 			return v, e
 		}
