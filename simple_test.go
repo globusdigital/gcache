@@ -8,7 +8,7 @@ import (
 
 func TestSimpleGet(t *testing.T) {
 	size := 1000
-	gc := buildTestCache(t, TYPE_SIMPLE, size)
+	gc := buildTestCache[string,string](t, TYPE_SIMPLE, size)
 	testSetCache(t, gc, size)
 	testGetCache(t, gc, size)
 }
@@ -68,7 +68,7 @@ func TestSimpleGetIFPresent(t *testing.T) {
 }
 
 func TestSimpleHas(t *testing.T) {
-	gc := buildTestLoadingCacheWithExpiration(t, TYPE_SIMPLE, 2, 10*time.Millisecond)
+	gc := buildTestLoadingCacheWithExpiration[string,string](t, TYPE_SIMPLE, 2, 10*time.Millisecond)
 
 	for i := 0; i < 10; i++ {
 		t.Run(fmt.Sprint(i), func(t *testing.T) {

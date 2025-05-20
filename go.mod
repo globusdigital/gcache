@@ -1,3 +1,3 @@
-module github.com/bluele/gcache
+module github.com/globusdigital/gcache
 
-go 1.15
+go 1.24

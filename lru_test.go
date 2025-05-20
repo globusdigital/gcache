@@ -8,7 +8,7 @@ import (
 
 func TestLRUGet(t *testing.T) {
 	size := 1000
-	gc := buildTestCache(t, TYPE_LRU, size)
+	gc := buildTestCache[string,string](t, TYPE_LRU, size)
 	testSetCache(t, gc, size)
 	testGetCache(t, gc, size)
 }
@@ -48,7 +48,7 @@ func TestLRUGetIFPresent(t *testing.T) {
 }
 
 func TestLRUHas(t *testing.T) {
-	gc := buildTestLoadingCacheWithExpiration(t, TYPE_LRU, 2, 10*time.Millisecond)
+	gc := buildTestLoadingCacheWithExpiration[string,string](t, TYPE_LRU, 2, 10*time.Millisecond)
 
 	for i := 0; i < 10; i++ {
 		t.Run(fmt.Sprint(i), func(t *testing.T) {

@@ -3,6 +3,7 @@ package gcache
 import (
 	"bytes"
 	"encoding/gob"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -11,21 +12,21 @@ import (
 
 func TestLoaderFunc(t *testing.T) {
 	size := 2
-	var testCaches = []*CacheBuilder{
-		New(size).Simple(),
-		New(size).LRU(),
-		New(size).LFU(),
-		New(size).ARC(),
+	testCaches := []*CacheBuilder[int, int]{
+		New[int, int](size).Simple(),
+		New[int, int](size).LRU(),
+		New[int, int](size).LFU(),
+		New[int, int](size).ARC(),
 	}
 	for _, builder := range testCaches {
 		var testCounter int64
 		counter := 1000
 		cache := builder.
-			LoaderFunc(func(key interface{}) (interface{}, error) {
+			LoaderFunc(func(key int) (int, error) {
 				time.Sleep(10 * time.Millisecond)
-				return atomic.AddInt64(&testCounter, 1), nil
+				return int(atomic.AddInt64(&testCounter, 1)), nil
 			}).
-			EvictedFunc(func(key, value interface{}) {
+			EvictedFunc(func(key, value int) {
 				panic(key)
 			}).Build()
 
@@ -50,20 +51,20 @@ func TestLoaderFunc(t *testing.T) {
 
 func TestLoaderExpireFuncWithoutExpire(t *testing.T) {
 	size := 2
-	var testCaches = []*CacheBuilder{
-		New(size).Simple(),
-		New(size).LRU(),
-		New(size).LFU(),
-		New(size).ARC(),
+	testCaches := []*CacheBuilder[int, int]{
+		New[int, int](size).Simple(),
+		New[int, int](size).LRU(),
+		New[int, int](size).LFU(),
+		New[int, int](size).ARC(),
 	}
 	for _, builder := range testCaches {
 		var testCounter int64
 		counter := 1000
 		cache := builder.
-			LoaderExpireFunc(func(key interface{}) (interface{}, *time.Duration, error) {
-				return atomic.AddInt64(&testCounter, 1), nil, nil
+			LoaderExpireFunc(func(key int) (int, *time.Duration, error) {
+				return int(atomic.AddInt64(&testCounter, 1)), nil, nil
 			}).
-			EvictedFunc(func(key, value interface{}) {
+			EvictedFunc(func(key, value int) {
 				panic(key)
 			}).Build()
 
@@ -89,19 +90,19 @@ func TestLoaderExpireFuncWithoutExpire(t *testing.T) {
 
 func TestLoaderExpireFuncWithExpire(t *testing.T) {
 	size := 2
-	var testCaches = []*CacheBuilder{
-		New(size).Simple(),
-		New(size).LRU(),
-		New(size).LFU(),
-		New(size).ARC(),
+	testCaches := []*CacheBuilder[int, int]{
+		New[int, int](size).Simple(),
+		New[int, int](size).LRU(),
+		New[int, int](size).LFU(),
+		New[int, int](size).ARC(),
 	}
 	for _, builder := range testCaches {
 		var testCounter int64
 		counter := 1000
 		expire := 200 * time.Millisecond
 		cache := builder.
-			LoaderExpireFunc(func(key interface{}) (interface{}, *time.Duration, error) {
-				return atomic.AddInt64(&testCounter, 1), &expire, nil
+			LoaderExpireFunc(func(key int) (int, *time.Duration, error) {
+				return int(atomic.AddInt64(&testCounter, 1)), &expire, nil
 			}).
 			Build()
 
@@ -140,23 +141,23 @@ func TestLoaderPurgeVisitorFunc(t *testing.T) {
 	size := 7
 	tests := []struct {
 		name         string
-		cacheBuilder *CacheBuilder
+		cacheBuilder *CacheBuilder[int64, int64]
 	}{
 		{
 			name:         "simple",
-			cacheBuilder: New(size).Simple(),
+			cacheBuilder: New[int64, int64](size).Simple(),
 		},
 		{
 			name:         "lru",
-			cacheBuilder: New(size).LRU(),
+			cacheBuilder: New[int64, int64](size).LRU(),
 		},
 		{
 			name:         "lfu",
-			cacheBuilder: New(size).LFU(),
+			cacheBuilder: New[int64, int64](size).LFU(),
 		},
 		{
 			name:         "arc",
-			cacheBuilder: New(size).ARC(),
+			cacheBuilder: New[int64, int64](size).ARC(),
 		},
 	}
 
@@ -164,13 +165,13 @@ func TestLoaderPurgeVisitorFunc(t *testing.T) {
 		var purgeCounter, evictCounter, loaderCounter int64
 		counter := 1000
 		cache := test.cacheBuilder.
-			LoaderFunc(func(key interface{}) (interface{}, error) {
+			LoaderFunc(func(key int64) (int64, error) {
 				return atomic.AddInt64(&loaderCounter, 1), nil
 			}).
-			EvictedFunc(func(key, value interface{}) {
+			EvictedFunc(func(key, value int64) {
 				atomic.AddInt64(&evictCounter, 1)
 			}).
-			PurgeVisitorFunc(func(k, v interface{}) {
+			PurgeVisitorFunc(func(k, v int64) {
 				atomic.AddInt64(&purgeCounter, 1)
 			}).
 			Build()
@@ -181,7 +182,7 @@ func TestLoaderPurgeVisitorFunc(t *testing.T) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				_, err := cache.Get(i)
+				_, err := cache.Get(int64(i))
 				if err != nil {
 					t.Error(err)
 				}
@@ -206,7 +207,7 @@ func TestLoaderPurgeVisitorFunc(t *testing.T) {
 }
 
 func TestDeserializeFunc(t *testing.T) {
-	var cases = []struct {
+	cases := []struct {
 		tp string
 	}{
 		{TYPE_SIMPLE},
@@ -218,25 +219,25 @@ func TestDeserializeFunc(t *testing.T) {
 	for _, cs := range cases {
 		key1, value1 := "key1", "value1"
 		key2, value2 := "key2", "value2"
-		cc := New(32).
+		cc := New[string, string](32).
 			EvictType(cs.tp).
-			LoaderFunc(func(k interface{}) (interface{}, error) {
+			LoaderFunc(func(k string) (string, error) {
 				return value1, nil
 			}).
-			DeserializeFunc(func(k, v interface{}) (interface{}, error) {
-				dec := gob.NewDecoder(bytes.NewBuffer(v.([]byte)))
+			DeserializeFunc(func(k, v string) (string, error) {
+				dec := gob.NewDecoder(strings.NewReader(v))
 				var str string
 				err := dec.Decode(&str)
 				if err != nil {
-					return nil, err
+					return "", err
 				}
 				return str, nil
 			}).
-			SerializeFunc(func(k, v interface{}) (interface{}, error) {
+			SerializeFunc(func(k, v string) (string, error) {
 				buf := new(bytes.Buffer)
 				enc := gob.NewEncoder(buf)
 				err := enc.Encode(v)
-				return buf.Bytes(), err
+				return buf.String(), err
 			}).
 			Build()
 		v, err := cc.Get(key1)
@@ -267,7 +268,7 @@ func TestDeserializeFunc(t *testing.T) {
 }
 
 func TestExpiredItems(t *testing.T) {
-	var tps = []string{
+	tps := []string{
 		TYPE_SIMPLE,
 		TYPE_LRU,
 		TYPE_LFU,

@@ -1,7 +1,4 @@
-# GCache
-
-![Test](https://github.com/bluele/gcache/workflows/Test/badge.svg)
-[![GoDoc](https://godoc.org/github.com/bluele/gcache?status.svg)](https://pkg.go.dev/github.com/bluele/gcache?tab=doc)
+# GCache - Generics Version
 
 Cache library for golang. It supports expirable Cache, LFU, LRU and ARC.
 
@@ -18,7 +15,7 @@ Cache library for golang. It supports expirable Cache, LFU, LRU and ARC.
 ## Install
 
 ```
-$ go get github.com/bluele/gcache
+$ go get github_com/globusdigital/gcache
 ```
 
 ## Example
@@ -29,12 +26,12 @@ $ go get github.com/bluele/gcache
 package main
 
 import (
-  "github.com/bluele/gcache"
+  "github_com/globusdigital/gcache"
   "fmt"
 )
 
 func main() {
-  gc := gcache.New(20).
+  gc := gcache.New[string,string](20).
     LRU().
     Build()
   gc.Set("key", "ok")
@@ -56,13 +53,13 @@ Get: ok
 package main
 
 import (
-  "github.com/bluele/gcache"
+  "github_com/globusdigital/gcache"
   "fmt"
   "time"
 )
 
 func main() {
-  gc := gcache.New(20).
+  gc := gcache.New[string,string](20).
     LRU().
     Build()
   gc.SetWithExpire("key", "ok", time.Second*10)
@@ -93,14 +90,14 @@ panic: ErrKeyNotFound
 package main
 
 import (
-  "github.com/bluele/gcache"
+  "github_com/globusdigital/gcache"
   "fmt"
 )
 
 func main() {
-  gc := gcache.New(20).
+  gc := gcache.New[string,string](20).
     LRU().
-    LoaderFunc(func(key interface{}) (interface{}, error) {
+    LoaderFunc(func(key string) (string, error) {
       return "ok", nil
     }).
     Build()
@@ -125,23 +122,23 @@ import (
   "fmt"
   "time"
 
-  "github.com/bluele/gcache"
+  "github_com/globusdigital/gcache"
 )
 
 func main() {
   var evictCounter, loaderCounter, purgeCounter int
-  gc := gcache.New(20).
+  gc := gcache.New[string,string](20).
     LRU().
-    LoaderExpireFunc(func(key interface{}) (interface{}, *time.Duration, error) {
+    LoaderExpireFunc(func(key string) (string, *time.Duration, error) {
       loaderCounter++
       expire := 1 * time.Second
       return "ok", &expire, nil
     }).
-    EvictedFunc(func(key, value interface{}) {
+    EvictedFunc(func(key, value string) {
       evictCounter++
       fmt.Println("evicted key:", key)
     }).
-    PurgeVisitorFunc(func(key, value interface{}) {
+    PurgeVisitorFunc(func(key, value string) {
       purgeCounter++
       fmt.Println("purged key:", key)
     }).
@@ -181,7 +178,7 @@ purged key: key
   ```go
   func main() {
     // size: 10
-    gc := gcache.New(10).
+    gc := gcache.New[string,string](10).
       LFU().
       Build()
     gc.Set("key", "value")
@@ -195,7 +192,7 @@ purged key: key
   ```go
   func main() {
     // size: 10
-    gc := gcache.New(10).
+    gc := gcache.New[string,string](10).
       LRU().
       Build()
     gc.Set("key", "value")
@@ -211,7 +208,7 @@ purged key: key
   ```go
   func main() {
     // size: 10
-    gc := gcache.New(10).
+    gc := gcache.New[string,string](10).
       ARC().
       Build()
     gc.Set("key", "value")
@@ -225,7 +222,7 @@ purged key: key
   ```go
   func main() {
     // size: 10
-    gc := gcache.New(10).Build()
+    gc := gcache.New[string,string](10).Build()
     gc.Set("key", "value")
     v, err := gc.Get("key")
     if err != nil {
@@ -240,9 +237,9 @@ If specified `LoaderFunc`, values are automatically loaded by the cache, and are
 
 ```go
 func main() {
-  gc := gcache.New(10).
+  gc := gcache.New[string,string](10).
     LRU().
-    LoaderFunc(func(key interface{}) (interface{}, error) {
+    LoaderFunc(func(key string) (string, error) {
       return "value", nil
     }).
     Build()
@@ -259,7 +256,7 @@ GCache coordinates cache fills such that only one load in one process of an enti
 ```go
 func main() {
   // LRU cache, size: 10, expiration: after a hour
-  gc := gcache.New(10).
+  gc := gcache.New[string,string](10).
     LRU().
     Expiration(time.Hour).
     Build()
@@ -274,8 +271,8 @@ Event handler for evict the entry.
 
 ```go
 func main() {
-  gc := gcache.New(2).
-    EvictedFunc(func(key, value interface{}) {
+  gc := gcache.New[string,string](2).
+    EvictedFunc(func(key, value string) {
       fmt.Println("evicted key:", key)
     }).
     Build()
@@ -295,8 +292,8 @@ Event handler for add the entry.
 
 ```go
 func main() {
-  gc := gcache.New(2).
-    AddedFunc(func(key, value interface{}) {
+  gc := gcache.New[string,string](2).
+    AddedFunc(func(key, value string) {
       fmt.Println("added key:", key)
     }).
     Build()
@@ -316,5 +313,5 @@ added key: 2
 
 **Jun Kimura**
 
-* <http://github.com/bluele>
+* <http://github_com/bluele>
 * <junkxdev@gmail.com>
